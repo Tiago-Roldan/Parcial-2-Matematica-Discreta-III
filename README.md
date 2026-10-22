@@ -1,7 +1,5 @@
 # Máquina virtual L-Cero
 
-> Distribución preparada para GitHub: incluye el código fuente, pruebas contractuales y `TestsParaVM`, pero excluye artefactos compilados y configuración privada. Antes del primer push consulte [`PUBLICATION_CHECKLIST.md`](PUBLICATION_CHECKLIST.md).
-
 Máquina virtual independiente para `LCERO_IR 1`, en C++17, Windows x64 y Visual Studio Community 2026. Las etapas 00 a 07 implementan la CLI, el modelo operacional, la carga/validación estática, la ejecución completa de la ISA, errores robustos, trazas depurables, una suite contractual repetible y una entrega integrable con el compilador del grupo.
 
 ## Frontera académica
