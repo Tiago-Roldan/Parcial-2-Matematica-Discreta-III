@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <iosfwd>
 #include <string>
 #include <vector>
@@ -20,6 +21,7 @@ enum class ExitCode : int {
 // otro proceso. stdout es de bytes: PRINT debe serializar LF sin traduccion.
 int run(const std::vector<std::wstring>& arguments,
         std::ostream& standard_output,
-        std::wostream& standard_error);
+        std::wostream& standard_error,
+        const std::filesystem::path& executable_path = {});
 
 }  // namespace lcero::vm::cli

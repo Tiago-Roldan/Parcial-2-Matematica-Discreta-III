@@ -50,6 +50,16 @@ CliResult invoke(const std::vector<std::wstring>& arguments) {
     return {exit_code, output.str(), error.str()};
 }
 
+CliResult invoke_from_executable(
+    const std::vector<std::wstring>& arguments,
+    const std::filesystem::path& executable_path) {
+    std::ostringstream output;
+    std::wostringstream error;
+    const int exit_code = lcero::vm::cli::run(
+        arguments, output, error, executable_path);
+    return {exit_code, output.str(), error.str()};
+}
+
 std::filesystem::path temporary_lci(const wchar_t* name,
                                     const std::string& contents) {
     const std::filesystem::path path =
@@ -168,6 +178,45 @@ void test_execution_with_unicode_path() {
     remove_fixture(input);
 }
 
+void test_relative_path_falls_back_to_executable_tree() {
+    const std::filesystem::path root =
+        std::filesystem::temp_directory_path() /
+        L"lcero_cli_ruta_relativa_desde_ejecutable";
+    const std::filesystem::path tests = root / L"TestsParaVM";
+    const std::filesystem::path executable =
+        root / L"build" / L"bin" / L"Debug" / L"lcero-vm.exe";
+    const std::filesystem::path program = tests / L"portabilidad.lci";
+
+    std::error_code cleanup_error;
+    std::filesystem::remove_all(root, cleanup_error);
+    cleanup_error.clear();
+    std::filesystem::create_directories(tests, cleanup_error);
+    expect(!cleanup_error,
+           "se crea la jerarquia portable junto al ejecutable simulado");
+    {
+        std::ofstream file(program, std::ios::binary | std::ios::trunc);
+        file << "LCERO_IR 1\nMEM 0\nCONST R0, 17\nPRINT R0\nHALT\n";
+        expect(file.good(), "se crea la RI fuera del directorio de trabajo");
+    }
+
+    // La ruta relativa no existe en el CWD del test. La CLI debe conservar
+    // primero esa regla y luego resolverla desde los ancestros del .exe.
+    const CliResult result = invoke_from_executable(
+        {L"TestsParaVM\\portabilidad.lci"}, executable);
+    expect(result.exit_code == 0,
+           "la VM encuentra una RI relativa desde su arbol de instalacion");
+    expect(result.standard_output == "17\n",
+           "la resolucion alternativa no cambia la salida PRINT");
+    expect(result.standard_error.find(L"LCERO_STATUS=HALT") !=
+               std::wstring::npos,
+           "la RI localizada conserva su terminacion operacional");
+
+    cleanup_error.clear();
+    std::filesystem::remove_all(root, cleanup_error);
+    expect(!cleanup_error,
+           "se elimina unicamente la jerarquia temporal portable");
+}
+
 void test_check_mode() {
     const std::filesystem::path input = temporary_lci(
         L"lcero_check_\u00F1.lci", "LCERO_IR 1\nMEM 0\nHALT\n");
@@ -279,6 +328,7 @@ int main() {
     test_help_and_version();
     test_invalid_arguments();
     test_execution_with_unicode_path();
+    test_relative_path_falls_back_to_executable_tree();
     test_check_mode();
     test_limits_and_runtime_error();
     test_state_is_reinitialized_between_runs();

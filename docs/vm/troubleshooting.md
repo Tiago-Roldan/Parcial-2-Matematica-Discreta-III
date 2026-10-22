@@ -15,8 +15,8 @@ Desde otra carpeta, indique la raíz absoluta:
 
 ```powershell
 powershell -ExecutionPolicy Bypass `
-  -File "C:\ruta\LCero\scripts\test-contracts.ps1" `
-  -ProjectRoot "C:\ruta\LCero" `
+  -File (Join-Path (Resolve-Path -LiteralPath ".").Path 'scripts\test-contracts.ps1') `
+  -ProjectRoot (Resolve-Path -LiteralPath ".").Path `
   -Configuration Debug
 ```
 

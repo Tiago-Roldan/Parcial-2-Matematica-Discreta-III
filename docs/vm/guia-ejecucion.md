@@ -165,10 +165,14 @@ En PowerShell, el código de la última ejecución se consulta mediante `$LASTEX
 
 1. Abra Visual Studio Community 2026.
 2. Seleccione **Abrir > Carpeta** y elija la carpeta `LCero` que contiene `CMakeLists.txt`.
-3. Asegúrese de que `VCPKG_ROOT` apunte a la instalación de vcpkg. En la instalación comprobada:
+3. Asegúrese de que `VCPKG_ROOT` apunte a la instalación de vcpkg. Puede localizar la copia integrada sin codificar una ruta del equipo:
 
    ```powershell
-   $env:VCPKG_ROOT = 'C:\Program Files\Microsoft Visual Studio\18\Community\VC\vcpkg'
+   $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+   $vsRoot = & $vswhere -latest -version '[18.0,19.0)' `
+     -products Microsoft.VisualStudio.Product.Community -property installationPath
+   if ([string]::IsNullOrWhiteSpace($vsRoot)) { throw 'No se encontró Visual Studio Community 2026.' }
+   $env:VCPKG_ROOT = Join-Path $vsRoot 'VC\vcpkg'
    ```
 
    Si cambia una variable de entorno después de abrir Visual Studio, cierre y vuelva a abrir el IDE para que la reciba.
@@ -195,7 +199,10 @@ Los nombres exactos de algunos menús pueden variar ligeramente según el idioma
 Desde PowerShell:
 
 ```powershell
-$env:VCPKG_ROOT = 'C:\Program Files\Microsoft Visual Studio\18\Community\VC\vcpkg'
+$vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+$vsRoot = & $vswhere -latest -version '[18.0,19.0)' `
+  -products Microsoft.VisualStudio.Product.Community -property installationPath
+$env:VCPKG_ROOT = Join-Path $vsRoot 'VC\vcpkg'
 & ".\scripts\build-debug.ps1"
 & ".\scripts\smoke.ps1"
 ```

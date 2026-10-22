@@ -45,7 +45,9 @@ void print_help(std::ostream& output) {
               "[--trace ruta\\archivo.log] ruta\\programa.lci\n\n"
            << "Ejecuta LCERO_IR 1 con limite predeterminado de 100000 pasos.\n"
            << "--check valida sin ejecutar; --max-steps 0 es valido.\n"
-           << "--trace escribe un log UTF-8/LF sin mezclarlo con PRINT.\n";
+           << "--trace escribe un log UTF-8/LF sin mezclarlo con PRINT.\n"
+           << "Una ruta relativa busca primero en CWD y luego junto al arbol "
+              "del ejecutable.\n";
 }
 
 void print_cli_error(std::wostream& error,
@@ -63,6 +65,53 @@ bool has_lci_extension(const std::filesystem::path& path) {
                        return static_cast<wchar_t>(std::towlower(character));
                    });
     return extension == L".lci";
+}
+
+std::filesystem::path resolve_input_path(
+    const std::filesystem::path& requested_path,
+    const std::filesystem::path& executable_path) {
+    // Una ruta absoluta ya expresa por completo la intencion del usuario.
+    // Para rutas relativas se conserva primero la convencion historica del
+    // CWD. Solo si no existe alli se consulta la jerarquia del ejecutable.
+    if (requested_path.is_absolute()) {
+        return requested_path;
+    }
+
+    std::error_code status_error;
+    if (std::filesystem::is_regular_file(requested_path, status_error) &&
+        !status_error) {
+        return requested_path;
+    }
+    if (executable_path.empty()) {
+        return requested_path;
+    }
+
+    std::error_code absolute_error;
+    const std::filesystem::path absolute_executable =
+        std::filesystem::absolute(executable_path, absolute_error);
+    if (absolute_error) {
+        return requested_path;
+    }
+
+    // En una construccion Visual Studio el ejecutable vive normalmente en
+    // <raiz>/build/bin/Debug. Ascender permite encontrar, por ejemplo,
+    // <raiz>/TestsParaVM/prueba_1.lci sin codificar una ruta personal.
+    std::filesystem::path directory = absolute_executable.parent_path();
+    while (!directory.empty()) {
+        const std::filesystem::path candidate = directory / requested_path;
+        std::error_code candidate_error;
+        if (std::filesystem::is_regular_file(candidate, candidate_error) &&
+            !candidate_error) {
+            return candidate;
+        }
+
+        const std::filesystem::path parent = directory.parent_path();
+        if (parent == directory) {
+            break;
+        }
+        directory = parent;
+    }
+    return requested_path;
 }
 
 std::wstring widen_ascii(const std::string_view text) {
@@ -402,7 +451,8 @@ int run_program(const std::filesystem::path& input_path,
 
 int run(const std::vector<std::wstring>& arguments,
         std::ostream& standard_output,
-        std::wostream& standard_error) {
+        std::wostream& standard_error,
+        const std::filesystem::path& executable_path) {
     if (arguments.size() == 1U && arguments.front() == L"--help") {
         print_help(standard_output);
         return as_integer(ExitCode::success);
@@ -436,9 +486,12 @@ int run(const std::vector<std::wstring>& arguments,
         return as_integer(ExitCode::usage_or_file_error);
     }
 
+    const std::filesystem::path input_path =
+        resolve_input_path(command.input_path, executable_path);
+
     std::error_code file_error;
     const bool is_regular_input =
-        std::filesystem::is_regular_file(command.input_path, file_error);
+        std::filesystem::is_regular_file(input_path, file_error);
     if (file_error || !is_regular_input) {
         print_cli_error(standard_error, L"ARCHIVO",
                         L"entrada inexistente, inaccesible o no regular");
@@ -446,9 +499,9 @@ int run(const std::vector<std::wstring>& arguments,
     }
 
     if (command.check_mode) {
-        return run_check(command.input_path, standard_error);
+        return run_check(input_path, standard_error);
     }
-    return run_program(command.input_path, command.execution_options,
+    return run_program(input_path, command.execution_options,
                        command.trace_path,
                        standard_output, standard_error);
 }

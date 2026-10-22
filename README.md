@@ -17,19 +17,26 @@ La ISA congelada contiene `CONST`, `LOAD`, `STORE`, `MOV`, `ADD`, `SUB`, `MUL`, 
 - CMake 4.2 o superior con el generador `Visual Studio 18 2026`.
 - vcpkg en modo manifiesto y `VCPKG_ROOT` apuntando a su raíz.
 
-En la instalación comprobada, Visual Studio incluye CMake y vcpkg. Si `cmake` no está en `PATH`, se puede abrir *Developer PowerShell for VS 2026* o añadir temporalmente la carpeta de CMake de Visual Studio al `PATH`. Para el vcpkg integrado:
+Visual Studio puede incluir CMake y vcpkg. Si `cmake` no está en `PATH`, se puede abrir *Developer PowerShell for VS 2026*. Para localizar el vcpkg integrado sin depender del nombre de usuario ni de una carpeta fija:
 
 ```powershell
-$env:VCPKG_ROOT = 'C:\Program Files\Microsoft Visual Studio\18\Community\VC\vcpkg'
+$vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+$vsRoot = & $vswhere -latest -version '[18.0,19.0)' `
+  -products Microsoft.VisualStudio.Product.Community -property installationPath
+if ([string]::IsNullOrWhiteSpace($vsRoot)) { throw 'No se encontró Visual Studio Community 2026.' }
+$env:VCPKG_ROOT = Join-Path $vsRoot 'VC\vcpkg'
+if (-not (Test-Path (Join-Path $env:VCPKG_ROOT 'scripts\buildsystems\vcpkg.cmake'))) {
+  throw 'La instalación detectada no contiene el toolchain de vcpkg.'
+}
 ```
 
 Para conservar la variable en futuras terminales:
 
 ```powershell
-[Environment]::SetEnvironmentVariable('VCPKG_ROOT', 'C:\Program Files\Microsoft Visual Studio\18\Community\VC\vcpkg', 'User')
+[Environment]::SetEnvironmentVariable('VCPKG_ROOT', $env:VCPKG_ROOT, 'User')
 ```
 
-Reabra la terminal después de persistirla. En otra instalación, use su ruta real; los archivos CMake del proyecto no codifican una ruta de usuario.
+Reabra la terminal después de persistirla. Si usa un vcpkg independiente, asigne a `VCPKG_ROOT` la ruta resuelta de esa instalación. Los archivos CMake del proyecto no codifican rutas de usuarios ni de equipos concretos.
 
 ## Configuración, compilación y prueba
 
@@ -62,6 +69,7 @@ Los ejecutables quedan en `build/bin/Debug/lcero-vm.exe` y `build/bin/Release/lc
 - `--check archivo.lci`: valida bytes, gramática, operandos, slots y etiquetas sin ejecutar; informa por `stderr` y usa exit 0/3/5.
 - Sin argumentos, opción desconocida, ruta inválida o archivo inaccesible: error de CLI por `stderr`, código 5.
 - Ruta existente `.lci` sin `--check`: carga, valida y ejecuta las 18 instrucciones aprobadas. `HALT`, `ERROR` y `LIMIT` devuelven respectivamente 0, 2 y 4.
+- Las rutas relativas se buscan primero en el directorio de trabajo. Si el archivo no existe allí, la VM asciende desde la ubicación real de `lcero-vm.exe`; esto permite usar `TestsParaVM\prueba_1.lci` desde otra carpeta sin fijar una ruta personal. Las rutas absolutas no se reinterpretan.
 - `--max-steps N` limita antes de la siguiente instrucción; `--max-steps 0` es válido. `--no-step-limit` debe pedirse explícitamente y no puede combinarse con el límite numérico.
 - `--trace ruta.log` crea un log UTF-8/LF con estado inicial, pares `BEFORE`/`AFTER`, diffs de estado y resultado terminal. La traza no altera `PRINT`, `pc`, `k` ni el código de una ejecución exitosa.
 - `stdout` queda reservado a `PRINT`, en decimal y con byte LF exacto incluso bajo redirección en Windows. Estados y diagnósticos van a `stderr`.
@@ -74,7 +82,7 @@ Los ejecutables quedan en `build/bin/Debug/lcero-vm.exe` y `build/bin/Release/lc
 
 Las convenciones completas están en `docs/decisions.md`; el avance verificable se registra en `docs/progress.md`.
 
-Para una comprobación paso a paso mediante el `.exe`, PowerShell o Visual Studio Community 2026, consulte [`docs/vm/guia-ejecucion.md`](docs/vm/guia-ejecucion.md).
+Para comenzar desde cero, consulte el índice para principiantes [`guias/README.md`](guias/README.md). Si PowerShell no reconoce CMake o necesita configurar vcpkg, siga [`GUIA_CONFIGURAR_CMAKE_Y_VCPKG.md`](GUIA_CONFIGURAR_CMAKE_Y_VCPKG.md). Para ejecutar directamente un archivo del compilador desde la terminal, consulte [`GUIA_EJECUTAR_UN_ARCHIVO_LCI.md`](GUIA_EJECUTAR_UN_ARCHIVO_LCI.md). Para una referencia técnica paso a paso mediante el `.exe`, PowerShell o Visual Studio Community 2026, consulte [`docs/vm/guia-ejecucion.md`](docs/vm/guia-ejecucion.md).
 
 La documentación final se divide por responsabilidad:
 

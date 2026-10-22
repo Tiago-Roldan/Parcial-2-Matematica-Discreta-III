@@ -154,3 +154,27 @@ La evidencia empírica de los fixtures valida los comportamientos ejercitados, p
 - **Regresión:** CTest se repitió secuencialmente y pasó 6/6 en Debug (2,15 s) y 6/6 en Release (2,21 s). Un intento inicial de ejecutar ambas configuraciones en paralelo produjo una colisión entre nombres temporales de `lcero_vm_cli`; al repetir cada configuración por separado, como indican los comandos documentados, ambas pasaron. No fue un fallo semántico de la VM.
 - **Cambios en la VM:** ninguno. No fue necesario relajar el loader, cambiar la ISA ni adaptar resultados esperados.
 - **Límite de la evidencia:** no se recibió ni ejecutó el compilador ni los `.lc` originales. Se comprobó la compatibilidad de sus seis artefactos `.lci`, no el flujo extremo a extremo completo.
+
+## Portabilidad adicional — Resolución de `.lci` desde otra carpeta
+
+- **Fecha:** 22/10/2026.
+- **Estado:** VERIFICADO.
+- **Necesidad:** el repositorio se trasladó a otra carpeta y debía localizar `TestsParaVM` aunque el CWD de PowerShell o Visual Studio fuese distinto.
+- **Convención:** una ruta absoluta no cambia. Una ruta relativa conserva primero la resolución histórica respecto del CWD; si no existe allí, se prueba la misma ruta ascendiendo desde la ubicación real de `lcero-vm.exe`, obtenida con `GetModuleFileNameW`.
+- **Frontera formal:** la búsqueda física ocurre antes del loader. No agrega tokens, directivas u opcodes y no cambia `LCERO_IR 1`; el loader continúa recibiendo un solo archivo `.lci`.
+- **Prueba unitaria:** `lcero_vm_cli` crea una RI fuera del CWD y simula el ejecutable bajo `build/bin/Debug`; la ruta `TestsParaVM/portabilidad.lci` alcanza `HALT` y produce `17` seguido por LF.
+- **Prueba manual externa:** desde la carpeta anterior se comprobó que `TestsParaVM\prueba_1.lci` no existía respecto de ese CWD. El `.exe` del repositorio nuevo resolvió el archivo, `--check` devolvió exit 0 y la ejecución produjo `38, 3, -3, 26`, `HALT`, `k=79` y exit 0.
+- **Suite:** CTest pasó 6/6 en Debug y 6/6 en Release. El runner invocado desde la carpeta anterior encontró automáticamente el proyecto nuevo y pasó 6/6 salidas del compilador.
+
+## Auditoría de portabilidad y guías para usuarios
+
+- **Fecha:** 22/10/2026.
+- **Estado:** VERIFICADO.
+- **Alcance de auditoría:** fuentes C++, cabeceras, CMake, presets, scripts, pruebas, fixtures y documentación distribuible. Se excluyeron `.git` y el directorio generado `build`.
+- **Resultado de rutas:** cero coincidencias de perfiles de Windows, nombres del equipo de desarrollo o rutas Windows absolutas codificadas. Las rutas se obtienen con `${sourceDir}`, variables CMake, `VCPKG_ROOT`, `$PSScriptRoot`, `Resolve-Path`, `Join-Path` y la ubicación real del ejecutable.
+- **Resultado de privacidad:** cero valores coincidentes con patrones de contraseñas, tokens de acceso o claves de GitHub. `.gitignore` mantiene fuera del producto configuraciones de agentes, archivos privados, secretos y artefactos locales.
+- **Documentación:** se agregó `guias/` con instalación, primer programa, suites, trazas, diagnóstico, integración con el compilador y portabilidad/privacidad. Los ejemplos de rutas fijas se reemplazaron por detección con `vswhere` y resolución local.
+- **Compilación:** Debug y Release completaron correctamente con MSBuild; se generaron ambos `lcero-vm.exe` solo para la verificación local.
+- **Regresión:** CTest pasó 6/6 en Debug y 6/6 en Release. Los seis archivos de `TestsParaVM` pasaron 6/6 en ambas configuraciones con salida LF exacta.
+- **Prueba desde otro CWD:** desde el directorio temporal, donde `TestsParaVM\prueba_1.lci` no existía, `--check` devolvió 0 y la ejecución alcanzó `HALT`, `k=79`, salida `38, 3, -3, 26` y exit 0.
+- **Entrega:** `build/` es regenerable, está ignorado y se elimina después de verificar porque los cachés de CMake incorporan necesariamente rutas absolutas del equipo que compila.

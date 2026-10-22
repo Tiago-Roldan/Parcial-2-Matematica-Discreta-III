@@ -16,6 +16,8 @@ La VM acepta únicamente rutas a `.lci`; nunca interpreta `.lc`, tokens, AST ni 
 
 En Windows la extensión se compara sin distinguir mayúsculas y minúsculas. Las rutas se reciben mediante `wmain` y `std::filesystem::path`, por lo que conservan espacios y Unicode y se resuelven respecto del directorio de trabajo del proceso.
 
+Para permitir que el repositorio se abra desde otro directorio, una ruta relativa inexistente en el CWD tiene una segunda resolución documentada: se prueba la misma ruta en cada ancestro de la ubicación real de `lcero-vm.exe`. El CWD conserva precedencia, una ruta absoluta nunca se reinterpreta y no se codifica ninguna cuenta local. Esta es una convención de localización de archivos del proceso anfitrión; no modifica la gramática ni la semántica de `LCERO_IR 1`.
+
 ## D-003 — Canales de salida
 
 - En ejecuciones normales, `stdout` queda reservado exclusivamente a los valores decimales de `PRINT`, cada uno terminado en LF (`\n`). `wmain` configura el descriptor como binario para impedir la traducción Windows LF → CRLF.

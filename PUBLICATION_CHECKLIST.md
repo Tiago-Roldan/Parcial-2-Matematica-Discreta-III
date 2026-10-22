@@ -7,7 +7,11 @@ Esta carpeta contiene el código fuente de la máquina virtual, los 40 fixtures 
 Desde la raíz del repositorio:
 
 ```powershell
-$env:VCPKG_ROOT = 'C:\Program Files\Microsoft Visual Studio\18\Community\VC\vcpkg'
+$vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+$vsRoot = & $vswhere -latest -version '[18.0,19.0)' `
+  -products Microsoft.VisualStudio.Product.Community -property installationPath
+if ([string]::IsNullOrWhiteSpace($vsRoot)) { throw 'No se encontró Visual Studio Community 2026.' }
+$env:VCPKG_ROOT = Join-Path $vsRoot 'VC\vcpkg'
 cmake -S . -B build -G "Visual Studio 18 2026" -A x64 `
   -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake"
 cmake --build build --config Debug

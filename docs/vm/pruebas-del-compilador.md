@@ -22,7 +22,7 @@ El script localiza `TestsParaVM` dentro del repositorio publicable y también la
 powershell -NoProfile -ExecutionPolicy Bypass `
   -File ".\scripts\test-compiler-outputs.ps1" `
   -Configuration Debug `
-  -TestsRoot "C:\ruta con espacios\TestsParaVM"
+  -TestsRoot (Join-Path (Resolve-Path -LiteralPath ".").Path 'TestsParaVM')
 ```
 
 Por cada archivo, el runner realiza dos operaciones distintas:
@@ -52,7 +52,7 @@ Primero valide el `.lci` sin ejecutarlo:
 ```powershell
 & ".\build\bin\Debug\lcero-vm.exe" `
   --check `
-  "C:\ruta con espacios\programa.lci"
+  (Resolve-Path -LiteralPath ".\TestsParaVM\prueba_1.lci").Path
 $LASTEXITCODE
 ```
 
@@ -61,7 +61,7 @@ Después ejecútelo con un presupuesto explícito:
 ```powershell
 & ".\build\bin\Debug\lcero-vm.exe" `
   --max-steps 100000 `
-  "C:\ruta con espacios\programa.lci"
+  (Resolve-Path -LiteralPath ".\TestsParaVM\prueba_1.lci").Path
 $LASTEXITCODE
 ```
 
@@ -70,18 +70,38 @@ En Release solo cambia la ruta del ejecutable:
 ```powershell
 & ".\build\bin\Release\lcero-vm.exe" `
   --max-steps 100000 `
-  "C:\ruta con espacios\programa.lci"
+  (Resolve-Path -LiteralPath ".\TestsParaVM\prueba_1.lci").Path
 ```
 
 Un exit code 0 acompañado por `LCERO_STATUS=HALT` significa que se ejecutó `HALT`. `--check` exitoso solo confirma validez estática: no garantiza terminación ni ausencia de división por cero o lecturas no inicializadas en la rama recorrida.
 
+### Ejecutar desde otra carpeta
+
+Puede abrir PowerShell en cualquier directorio, invocar el `.exe` mediante su ruta absoluta y conservar `TestsParaVM\prueba_1.lci` como argumento relativo:
+
+```powershell
+$repo = (Resolve-Path -LiteralPath ".").Path
+$vm = Join-Path $repo 'build\bin\Debug\lcero-vm.exe'
+Push-Location ([IO.Path]::GetTempPath())
+try {
+  & $vm --max-steps 100000 "TestsParaVM\prueba_1.lci"
+} finally {
+  Pop-Location
+}
+```
+
+La VM prueba primero la ruta relativa al CWD. Si allí no existe, obtiene la ubicación real de `lcero-vm.exe` y asciende por sus directorios hasta encontrar la misma ruta. De este modo funciona desde Visual Studio, una terminal externa o una carpeta distinta sin guardar una ruta de usuario dentro del código. Una ruta absoluta se usa exactamente como fue recibida.
+
 ## Inspeccionar una ejecución
 
 ```powershell
-& ".\build\bin\Debug\lcero-vm.exe" `
+$repo = (Resolve-Path -LiteralPath ".").Path
+$vm = Join-Path $repo 'build\bin\Debug\lcero-vm.exe'
+$programa = Join-Path $repo 'TestsParaVM\prueba_1.lci'
+& $vm `
   --max-steps 100000 `
-  --trace ".\build\programa.log" `
-  "C:\ruta con espacios\programa.lci"
+  --trace (Join-Path $repo 'build\programa.log') `
+  $programa
 ```
 
 La traza relaciona cada línea fuente `.lci` con el índice ejecutable 0-based, registra `pc`, `k`, opcode y diferencias de estado. No forma parte de la salida del programa: `stdout` sigue reservado exclusivamente a `PRINT`.
